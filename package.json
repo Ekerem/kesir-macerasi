@@ -1,0 +1,15 @@
+{
+  "name": "kesir-macerasi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Venüs ile uzayda birim kesir ve basit kesir oyunu (3. sınıf)",
+  "scripts": {
+    "www": "mkdir -p www && cp index.html sw.js version.json www/"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  }
+}

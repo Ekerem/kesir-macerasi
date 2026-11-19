@@ -1,0 +1,7 @@
+{
+  "appId": "com.madebyus.kesirmacerasi",
+  "appName": "Kesir Macerası",
+  "webDir": "www",
+  "server": { "allowNavigation": ["ekerem.github.io"] },
+  "android": { "backgroundColor": "#0b1030" }
+}
