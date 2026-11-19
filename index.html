@@ -50,6 +50,13 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
 #stage,#win{align-items:flex-start}
 #stage .panel,#win .panel{margin:0 auto}
+.cats{display:flex;gap:clamp(10px,3vw,24px);justify-content:center;margin-bottom:clamp(8px,2vh,14px)}
+.catb{font-family:var(--font);background:#1d1a45;border:4px solid var(--ink);border-radius:20px;cursor:pointer;padding:4px 10px 6px;
+  box-shadow:0 5px 0 var(--ink);display:flex;flex-direction:column;align-items:center;color:#fff;opacity:.55;transition:transform .1s,opacity .1s}
+.catb canvas{width:clamp(70px,17vh,110px);height:auto;display:block}
+.catb b{font-size:clamp(15px,3vh,20px);line-height:1.1}
+.catb[aria-pressed="true"]{opacity:1;background:#2b2470;outline:4px solid var(--gold);transform:scale(1.04)}
+.catb:focus-visible{outline:4px solid var(--berry)}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 #hud{position:fixed;z-index:7;top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 10px);display:flex;gap:8px}
 .hbtn{width:44px;height:44px;border-radius:14px;border:3px solid var(--ink);background:var(--card);font-size:20px;cursor:pointer;
@@ -84,7 +91,11 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 <div id="menu" class="screen">
   <div class="panel">
     <h1>Kesir <span>Macerası</span></h1>
-    <p class="sub">Venüs ile uzayda kesir basamaklarına zıpla!</p>
+    <p class="sub" id="menuSub">Kimle oynamak istersin?</p>
+    <div class="cats">
+      <button class="catb" id="cb-venus" data-cat="venus"><canvas width="240" height="250"></canvas><b>Venüs</b></button>
+      <button class="catb" id="cb-venusella" data-cat="venusella"><canvas width="240" height="250"></canvas><b>Venüsella</b></button>
+    </div>
     <div class="stages">
       <button class="stg" id="st1" style="background:#ff9ec4"><b>1. Bölüm</b><span class="fr">½ · ⅓ · ¼</span><small>Birim Kesirler · 20 soru</small></button>
       <button class="stg" id="st2" style="background:#9be8ff"><b>2. Bölüm</b><span class="fr">⅔ · ¾ · ⅖</span><small>Basit Kesirler · 15 soru</small></button>
@@ -118,7 +129,7 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 <div id="over" class="screen" hidden>
   <div class="panel" style="max-width:480px">
     <h2>Canların bitti</h2>
-    <p class="sub">Venüs biraz dinlendi. Bu bölümü yeniden deneyelim!</p>
+    <p class="sub"><span class="cname">Venüs</span> biraz dinlendi. Bu bölümü yeniden deneyelim!</p>
     <div class="row">
       <button class="btn" id="bRetry" style="background:var(--gold)">🔁 Tekrar Dene</button>
       <button class="btn" id="bMenu3" style="background:#fff">🏠 Menü</button>
@@ -129,7 +140,7 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 <div id="win" class="screen" hidden>
   <div class="panel" style="max-width:560px">
     <h2>Tebrikler! 🎉</h2>
-    <p>Venüs bütün kesir basamaklarını tırmandı!</p>
+    <p><span class="cname">Venüs</span> bütün kesir basamaklarını tırmandı!</p>
     <p id="wStars" style="font-size:clamp(18px,4vh,26px)"></p>
     <div class="row">
       <button class="btn" id="bAgain" style="background:var(--gold)">🔁 Tekrar Oyna</button>
@@ -155,7 +166,7 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 (()=>{
 'use strict';
 // ---------- app version, update check, offline layer ----------
-const APP_VERSION='1.0.2';
+const APP_VERSION='1.1.0';
 const PAGES_HOST='ekerem.github.io';
 const PAGES_URL='https://ekerem.github.io/kesir-macerasi/';
 const IS_NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
@@ -234,6 +245,12 @@ const SFX={c:null,on:store.get('kesir_sound',true),
   fail(){[[392,0],[349,.2],[311,.4],[262,.6]].forEach(([f,t])=>this.tone(f,t,.3,'triangle',.08))}
 };
 
+// ---------- characters (both drawn by my daughter) ----------
+const CATS={
+  venus:{name:'Venüs',T:'#33cfc4',T2:'#17968e',TL:'#9ff3ea',BR:'#7a4a2a',PAW:'#26b3a8',MASK:'#15161e',girl:false},
+  venusella:{name:'Venüsella',T:'#b45cd8',T2:'#7f2fa6',TL:'#e8bdf8',BR:'#ffffff',PAW:'#a24ccb',MASK:'#9b3fc4',girl:true}};
+let catId=store.get('kesir_cat','venus');if(!CATS[catId])catId='venus';
+const CAT=()=>CATS[catId];
 // ---------- 3D-ish projection (camera behind Venüs, looking forward) ----------
 // world: X sideways (px at depth 1), z depth, h height (px at depth 1). Screen y = HY + (CAMH - h)/z.
 const HY=150,CAMH=320,LX=270,HW=110,TH=130,DP=.4,STOP=1.75,STEPH=90,CAT_K=.85,MAXLIVES=3;
@@ -602,7 +619,7 @@ function drawCatBack(x,y,sc,c){
   ctx.rotate(c.rot);
   const sq=c.sq,br=air?0:Math.sin(t*3)*.015;
   ctx.scale(sc*(1+sq*.1),sc*(1-sq*.12+br));
-  const LN='#1b1c26',T='#33cfc4',T2='#17968e',TL='#9ff3ea',BR='#7a4a2a';
+  const K=CAT(),LN='#1b1c26',T=K.T,T2=K.T2,TL=K.TL,BR=K.BR;
   ctx.lineCap='round';ctx.lineJoin='round';
   // hind legs (tucked while in the air)
   const leg=(x0,dir)=>{
@@ -611,12 +628,13 @@ function drawCatBack(x,y,sc,c){
     P2();ctx.strokeStyle=LN;ctx.lineWidth=15;ctx.stroke();ctx.strokeStyle='#fbfcff';ctx.lineWidth=11.5;ctx.stroke();
     ctx.lineCap='butt';ctx.setLineDash([3.5,4]);ctx.lineDashOffset=-2;P2();ctx.strokeStyle=T;ctx.lineWidth=11.5;ctx.stroke();
     ctx.setLineDash([1.3,6.2]);ctx.lineDashOffset=-6;P2();ctx.strokeStyle=BR;ctx.stroke();ctx.setLineDash([]);ctx.lineCap='round';
-    ctx.fillStyle='#26b3a8';ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(fx+dir*1.5,end+1,9,5.2,0,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle=K.PAW;ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(fx+dir*1.5,end+1,9,5.2,0,0,7);ctx.fill();ctx.stroke();
   };
   leg(-14,-1);leg(14,1);
   // body
   const bg=ctx.createRadialGradient(-8,-52,4,0,-42,32);bg.addColorStop(0,'#ffffff');bg.addColorStop(.6,'#eef1f8');bg.addColorStop(1,'#bfc6d6');
   ctx.beginPath();ctx.ellipse(0,-42,27,28,0,0,7);ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
+  if(!K.girl){
   // cape over the back (flutters, lifts in the air)
   const lift=air?1:0,by=-12-lift*16,wd=34+lift*10;
   const wv=i=>Math.sin(t*7-i*1.3)*(2.2+lift*3);
@@ -626,6 +644,7 @@ function drawCatBack(x,y,sc,c){
   ctx.quadraticCurveTo(26,-48,15,-68);ctx.closePath();ctx.fillStyle=cg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
   ctx.strokeStyle='rgba(23,150,142,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-5,-62);ctx.quadraticCurveTo(-10,-40,-14+wv(2),by+2);ctx.moveTo(6,-62);ctx.quadraticCurveTo(11,-40,15+wv(3),by+2);ctx.stroke();
   ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(-13,-64);ctx.quadraticCurveTo(-22,-50,-25,-34);ctx.stroke();
+  }
   // tail (closest to us) swaying over the cape
   const tw=Math.sin(t*2.6)*6+(air?-8:0);
   const tail=()=>{ctx.beginPath();ctx.moveTo(4,-16);ctx.bezierCurveTo(22,-14,34,-30,30+tw*.3,-50);ctx.quadraticCurveTo(28+tw,-62,20+tw,-66)};
@@ -634,6 +653,7 @@ function drawCatBack(x,y,sc,c){
   // collar where the cape ties
   ctx.strokeStyle=LN;ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-17,-69);ctx.quadraticCurveTo(0,-62,17,-69);ctx.stroke();
   ctx.strokeStyle=T;ctx.lineWidth=5;ctx.stroke();
+  if(K.girl)scarf(K,1,air,-66);
   // head (back of the head)
   ctx.save();ctx.translate(0,-90+(air?0:Math.sin(t*3+1)*.8));
   const ear=(s)=>{ctx.beginPath();ctx.moveTo(s*21,-6);ctx.lineTo(s*17,-31);ctx.lineTo(s*3,-17);ctx.closePath();
@@ -644,7 +664,7 @@ function drawCatBack(x,y,sc,c){
   ctx.beginPath();ctx.ellipse(0,0,24,21,0,0,7);ctx.fillStyle=hg;ctx.fill();
   // mask band seen from behind, knot at the back
   ctx.save();ctx.clip();
-  ctx.fillStyle='#15161e';ctx.beginPath();ctx.moveTo(-26,-7);ctx.quadraticCurveTo(0,-11,26,-7);ctx.lineTo(26,2);ctx.quadraticCurveTo(0,-2,-26,2);ctx.closePath();ctx.fill();
+  ctx.fillStyle=K.MASK;ctx.beginPath();ctx.moveTo(-26,-7);ctx.quadraticCurveTo(0,-11,26,-7);ctx.lineTo(26,2);ctx.quadraticCurveTo(0,-2,-26,2);ctx.closePath();ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.14)';ctx.beginPath();ctx.ellipse(-6,-8,12,1.4,0,0,7);ctx.fill();
   ctx.restore();
   ctx.beginPath();ctx.ellipse(0,0,24,21,0,0,7);ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
@@ -653,7 +673,7 @@ function drawCatBack(x,y,sc,c){
   ctx.moveTo(-23,8);ctx.lineTo(-36,6);ctx.moveTo(-22,11);ctx.lineTo(-34,14);ctx.moveTo(23,8);ctx.lineTo(36,6);ctx.moveTo(22,11);ctx.lineTo(34,14);ctx.stroke();
   // mask ribbons fluttering from the knot
   const rw=Math.sin(t*8)*3,up=air?-12:0;
-  ctx.fillStyle='#15161e';
+  ctx.fillStyle=K.MASK;
   ctx.beginPath();ctx.moveTo(-3,-3);ctx.quadraticCurveTo(-9,10,-15+rw+up*.6,25+up);ctx.lineTo(-7+rw+up*.6,28+up);ctx.quadraticCurveTo(-3,12,1,0);ctx.closePath();ctx.fill();
   ctx.beginPath();ctx.moveTo(3,-3);ctx.quadraticCurveTo(10,8,15-rw-up*.6,21+up);ctx.lineTo(8-rw-up*.6,25+up);ctx.quadraticCurveTo(4,11,-1,0);ctx.closePath();ctx.fill();
   ctx.beginPath();ctx.ellipse(0,-2,6,5,0,0,7);ctx.fill();
@@ -663,19 +683,22 @@ function drawCatBack(x,y,sc,c){
 
 // ---------- Venüs facing us (celebration) ----------
 function drawCatFront(x,y,sc,c,hop){
-  const t=g.t,LN='#1b1c26',T='#33cfc4',T2='#17968e',TL='#9ff3ea',BR='#7a4a2a';
+  const K=CAT(),t=g.t,LN='#1b1c26',T=K.T,T2=K.T2,TL=K.TL,BR=K.BR;
   const side=hop.side,lift=hop.air,sq=hop.sq;
   ctx.save();ctx.translate(x,y);
   ctx.fillStyle='rgba(10,8,30,.35)';ctx.beginPath();ctx.ellipse(-hop.dx*sc,2*sc+hop.h*sc,(34-lift*10)*sc,7*sc,0,0,7);ctx.fill();
   ctx.rotate(side*.1*(.3+lift));
   ctx.scale(sc*(hop.flip)*(1+sq*.1),sc*(1-sq*.12));
   ctx.lineCap='round';ctx.lineJoin='round';
+  if(!K.girl){
   // cape behind, flaring out on both sides
   const wv=i=>Math.sin(t*8-i*1.2)*(3+lift*3),by=-8-lift*10,wd=40+lift*8;
   const cg=ctx.createLinearGradient(0,-70,0,by);cg.addColorStop(0,T);cg.addColorStop(1,T2);
   ctx.beginPath();ctx.moveTo(-15,-68);ctx.quadraticCurveTo(-34,-46,-wd+wv(0),by);
   for(let i=1;i<=4;i++){const x1=-wd+2*wd*i/4;ctx.quadraticCurveTo(x1-wd/4,by+7+wv(i),x1,by+wv(i+1)*.6)}
   ctx.quadraticCurveTo(34,-46,15,-68);ctx.closePath();ctx.fillStyle=cg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
+  }
+  if(K.girl)scarf(K,1,lift,-70);
   // tail behind, waving happily
   const tw=Math.sin(t*9)*8;
   const tail=()=>{ctx.beginPath();ctx.moveTo(12,-26);ctx.bezierCurveTo(30,-26,40,-44,36+tw*.4,-62);ctx.quadraticCurveTo(34+tw,-72,26+tw,-74)};
@@ -686,7 +709,7 @@ function drawCatFront(x,y,sc,c,hop){
     P2();ctx.strokeStyle=LN;ctx.lineWidth=14;ctx.stroke();ctx.strokeStyle='#fbfcff';ctx.lineWidth=10.5;ctx.stroke();
     ctx.lineCap='butt';ctx.setLineDash([3.5,4]);ctx.lineDashOffset=-2;P2();ctx.strokeStyle=T;ctx.lineWidth=10.5;ctx.stroke();
     ctx.setLineDash([1.3,6.2]);ctx.lineDashOffset=-6;P2();ctx.strokeStyle=BR;ctx.stroke();ctx.setLineDash([]);ctx.lineCap='round';
-    ctx.fillStyle='#26b3a8';ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(fx+s*2,fy+1,8.5,5,0,0,7);ctx.fill();ctx.stroke()};
+    ctx.fillStyle=K.PAW;ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(fx+s*2,fy+1,8.5,5,0,0,7);ctx.fill();ctx.stroke()};
   // the leg on the landing side stands; the other is lifted
   leg(-1,side>0);leg(1,side<0);
   // body
@@ -694,11 +717,11 @@ function drawCatFront(x,y,sc,c,hop){
   ctx.beginPath();ctx.ellipse(0,-46,22,25,0,0,7);ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
   // turquoise suit oval on the chest
   const sg=ctx.createRadialGradient(-3,-50,1,0,-44,15);sg.addColorStop(0,TL);sg.addColorStop(.45,T);sg.addColorStop(1,T2);
-  ctx.beginPath();ctx.ellipse(0,-44,12,14,0,0,7);ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();if(K.girl)ctx.ellipse(0,-42,8.5,17,0,0,7);else ctx.ellipse(0,-44,12,14,0,0,7);ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2;ctx.stroke();
   // arms raised in joy
   const arm=s=>{const wave=Math.sin(t*10+s)*5,ex=s*31,ey=-90+wave;
     ctx.beginPath();ctx.moveTo(s*16,-62);ctx.quadraticCurveTo(s*30,-68,ex,ey);ctx.strokeStyle=LN;ctx.lineWidth=12;ctx.stroke();ctx.strokeStyle='#fbfcff';ctx.lineWidth=8.5;ctx.stroke();
-    ctx.fillStyle='#26b3a8';ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(ex,ey-3,7,6.5,0,0,7);ctx.fill();ctx.stroke()};
+    ctx.fillStyle=K.PAW;ctx.strokeStyle=LN;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(ex,ey-3,7,6.5,0,0,7);ctx.fill();ctx.stroke()};
   arm(-1);arm(1);
   // collar
   ctx.strokeStyle=LN;ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-16,-69);ctx.quadraticCurveTo(0,-62,16,-69);ctx.stroke();ctx.strokeStyle=T;ctx.lineWidth=5;ctx.stroke();
@@ -710,14 +733,17 @@ function drawCatFront(x,y,sc,c,hop){
   const hg=ctx.createRadialGradient(-8,-8,3,0,0,25);hg.addColorStop(0,'#ffffff');hg.addColorStop(.6,'#f0f3f9');hg.addColorStop(1,'#c3cad9');
   ctx.beginPath();ctx.ellipse(0,0,24,21,0,0,7);ctx.fillStyle=hg;ctx.fill();
   ctx.save();ctx.clip();
-  ctx.fillStyle='#15161e';ctx.beginPath();ctx.moveTo(-26,-14);ctx.quadraticCurveTo(-10,-18,0,-14);ctx.quadraticCurveTo(10,-18,26,-14);ctx.lineTo(26,3);ctx.quadraticCurveTo(10,6,0,3);ctx.quadraticCurveTo(-10,6,-26,3);ctx.closePath();ctx.fill();
+  ctx.fillStyle=K.MASK;ctx.beginPath();ctx.moveTo(-26,-14);ctx.quadraticCurveTo(-10,-18,0,-14);ctx.quadraticCurveTo(10,-18,26,-14);ctx.lineTo(26,3);ctx.quadraticCurveTo(10,6,0,3);ctx.quadraticCurveTo(-10,6,-26,3);ctx.closePath();ctx.fill();
   ctx.restore();
   ctx.beginPath();ctx.ellipse(0,0,24,21,0,0,7);ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.stroke();
   // big happy eyes
   const eye=ex=>{const r=6.2,ey=-5.5;const ig=ctx.createRadialGradient(ex,ey,r*.4,ex,ey,r);ig.addColorStop(0,'#0d1a1e');ig.addColorStop(.62,'#0d1a1e');ig.addColorStop(.7,T);ig.addColorStop(1,'#7fe9df');
     ctx.beginPath();ctx.arc(ex,ey,r,0,7);ctx.fillStyle=ig;ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(ex-r*.22,ey-r*.25,r*.32,r*.26,-.4,0,7);ctx.fill();
     ctx.beginPath();ctx.arc(ex+r*.35,ey+r*.32,r*.11,0,7);ctx.fill()};
-  eye(-9);eye(9);
+  if(K.girl){ // happy closed eyes with lashes, like her drawing
+    for(const ex of [-9,9]){ctx.strokeStyle=LN;ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(ex,-3,6,Math.PI*1.1,Math.PI*1.9);ctx.stroke();
+      ctx.lineWidth=1.6;ctx.beginPath();for(const a of [1.25,1.5,1.75]){const ax=ex+Math.cos(Math.PI*a)*6,ay=-3+Math.sin(Math.PI*a)*6;ctx.moveTo(ax,ay);ctx.lineTo(ax+Math.cos(Math.PI*a)*3.5,ay+Math.sin(Math.PI*a)*3.5)}ctx.stroke()}
+  }else{eye(-9);eye(9)}
   // nose, open smiling mouth, freckles, whiskers
   ctx.fillStyle=LN;ctx.beginPath();ctx.moveTo(-3,5);ctx.lineTo(3,5);ctx.lineTo(0,8.5);ctx.closePath();ctx.fill();
   ctx.beginPath();ctx.moveTo(-6,10);ctx.quadraticCurveTo(0,19,6,10);ctx.quadraticCurveTo(0,12,-6,10);ctx.closePath();ctx.fillStyle='#3a1420';ctx.fill();
@@ -729,6 +755,29 @@ function drawCatFront(x,y,sc,c,hop){
   ctx.fillStyle='rgba(255,120,150,.35)';ctx.beginPath();ctx.ellipse(-15,6,4,2.5,0,0,7);ctx.ellipse(15,6,4,2.5,0,0,7);ctx.fill();
   ctx.restore();
   ctx.restore();
+}
+// Venüsella's long purple scarf streaming to the side
+function scarf(K,dir,lift,y0){
+  const t=g.t,LN='#1b1c26',len=70+lift*10,N=7,top=[],bot=[];
+  for(let i=0;i<=N;i++){const k=i/N,w=Math.sin(t*7-i*1.1)*(2+k*6),x=dir*(10+k*len),y=y0+k*(14-lift*16)+w;top.push([x,y-5+k*1]);bot.push([x,y+6-k*1.5])}
+  const sg=ctx.createLinearGradient(0,y0-6,0,y0+20);sg.addColorStop(0,K.TL);sg.addColorStop(.4,K.T);sg.addColorStop(1,K.T2);
+  ctx.beginPath();ctx.moveTo(...top[0]);for(let i=1;i<=N;i++)ctx.lineTo(...top[i]);
+  const e=top[N],eb=bot[N];ctx.lineTo(e[0]+dir*9,(e[1]+eb[1])/2-3);ctx.lineTo(e[0]+dir*4,(e[1]+eb[1])/2+1);ctx.lineTo(eb[0]+dir*8,eb[1]+3);
+  for(let i=N;i>=0;i--)ctx.lineTo(...bot[i]);ctx.closePath();
+  ctx.fillStyle=sg;ctx.fill();ctx.strokeStyle=LN;ctx.lineWidth=2.2;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(...top[1]);for(let i=2;i<N;i++)ctx.lineTo(top[i][0],top[i][1]+2.5);ctx.stroke();
+}
+function butterflies(x,y,sc){
+  if(!CAT().girl)return;
+  for(let i=0;i<2;i++){const t=g.t+i*2.1,bx=x+Math.cos(t*1.2+i*Math.PI)*62*sc,by=y-(105+Math.sin(t*1.9+i)*22)*sc,flap=.35+.65*Math.abs(Math.sin(t*14)),z=sc*1.05;
+    ctx.save();ctx.translate(bx,by);ctx.rotate(Math.sin(t*1.2+i*Math.PI)*.4);ctx.scale(z,z);
+    ctx.lineWidth=1.4;ctx.strokeStyle='#1b1c26';
+    for(const d of [-1,1]){ctx.save();ctx.scale(d*flap,1);
+      ctx.fillStyle='#b45cd8';ctx.beginPath();ctx.ellipse(6,-4,7,5.5,-.5,0,7);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#d79bf0';ctx.beginPath();ctx.ellipse(5,4,4.5,4,.5,0,7);ctx.fill();ctx.stroke();ctx.restore()}
+    ctx.fillStyle='#fff6c8';ctx.beginPath();ctx.ellipse(0,0,2,6,0,0,7);ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#1b1c26';ctx.beginPath();ctx.moveTo(-2,-1.5);ctx.lineTo(2,-1.5);ctx.moveTo(-2,1.5);ctx.lineTo(2,1.5);ctx.moveTo(-1,-6);ctx.lineTo(-3,-10);ctx.moveTo(1,-6);ctx.lineTo(3,-10);ctx.stroke();
+    ctx.restore()}
 }
 function partyPose(){
   const T=g.partyT,turn=Math.min(1,T/.4);
@@ -808,6 +857,7 @@ function draw(){
   ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
   drawSky();
   if(g.state==='menu'){
+    drawPreviews();ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
     // idle Venüs in the menu background
     drawParts();return;
   }
@@ -820,8 +870,9 @@ function draw(){
   if(g.state!=='over')items.push({k:c.z-.05,f:()=>{
     if(g.party){const pp=partyPose(),p=P(c.X+pp.dx,c.z,c.h+pp.h);
       if(pp.front)drawCatFront(p.x,p.y,CAT_K*p.s,c,{...pp,dx:0,h:pp.h/CAT_K});
-      else{ctx.save();ctx.translate(p.x,0);ctx.scale(pp.flip,1);ctx.translate(-p.x,0);drawCatBack(p.x,p.y,CAT_K*p.s,c);ctx.restore()}}
-    else{const p=P(c.X,c.z,c.h);drawCatBack(p.x,p.y,CAT_K*p.s,c)}}});
+      else{ctx.save();ctx.translate(p.x,0);ctx.scale(pp.flip,1);ctx.translate(-p.x,0);drawCatBack(p.x,p.y,CAT_K*p.s,c);ctx.restore()}
+      butterflies(p.x,p.y,CAT_K*p.s)}
+    else{const p=P(c.X,c.z,c.h);drawCatBack(p.x,p.y,CAT_K*p.s,c);if(c.alpha>.5)butterflies(p.x,p.y,CAT_K*p.s)}}});
   items.sort((a,b)=>b.k-a.k);for(const it of items)it.f();
   drawPanel();drawHUD();drawParts();
 }
@@ -863,7 +914,21 @@ function exitGame(){SFX.init();try{if(window.AndroidApp&&window.AndroidApp.exit)
   setTimeout(()=>{g.state='menu';['pause','win','hud','bExit','menu','over','stage'].forEach(i=>show(i,false));show('bye',true)},250)}
 function toMenu(){['bExit','bye','pause','win','over','stage'].forEach(i=>show(i,false));g.state='menu';g.q=null;
   show('hud',true);show('bPause',false);show('bHome',false);show('menu',true);g.parts=[];g.pops=[];renderMenu()}
+function applyName(){const n=CAT().name;document.querySelectorAll('.cname').forEach(e=>e.textContent=n);
+  document.querySelectorAll('.catb').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cat===catId)))}
+document.querySelectorAll('.catb').forEach(b=>b.addEventListener('click',()=>{SFX.init();SFX.beep();catId=b.dataset.cat;store.set('kesir_cat',catId);applyName();b.blur()}));
+function drawPreviews(){
+  const keep=ctx,keepId=catId;
+  document.querySelectorAll('.catb canvas').forEach(cv=>{const x=cv.getContext('2d');ctx=x;catId=cv.parentNode.dataset.cat;
+    x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);
+    const sel=catId===keepId,PER=.55,k=(g.t%PER)/PER,n=Math.floor(g.t/PER),side=n%2?1:-1;
+    const hop=sel?{side,air:Math.sin(Math.PI*k),sq:0,flip:1,h:Math.sin(Math.PI*k)*24/1.6,dx:0}:{side:1,air:0,sq:0,flip:1,h:0,dx:0};
+    const y=228-(sel?Math.sin(Math.PI*k)*24:0);
+    drawCatFront(120,y,1.6,{alpha:1},hop);butterflies(120,y,1.6)});
+  ctx=keep;catId=keepId;
+}
 function renderMenu(){
+  applyName();
   for(const st of [1,2]){const b=document.getElementById('st'+st);let d=b.querySelector('.done');
     if(best[st]!=null){if(!d){d=document.createElement('span');d.className='done';b.appendChild(d)}d.textContent='⭐ '+best[st]}}
 }

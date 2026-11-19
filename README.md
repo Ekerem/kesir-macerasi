@@ -1,6 +1,6 @@
 # Kesir Macerası
 
-3. sınıf için uzayda geçen kesir oyunu. Venüs (kızımın çizdiği süper kedi) önde durur, ileriden 3 kesir basamağı gelir. Yukarıdaki şeklin boyalı kısmını gösteren basamağa dokunulunca Venüs oraya zıplar; yanlış basamak kırılır ve bir can gider.
+3. sınıf için uzayda geçen kesir oyunu. Oyuncu Venüs ya da Venüsella’yı (kızımın çizdiği süper kediler) seçer. Seçilen kedi önde durur, ileriden 3 kesir basamağı gelir. Yukarıdaki şeklin boyalı kısmını gösteren basamağa dokunulunca Venüs oraya zıplar; yanlış basamak kırılır ve bir can gider.
 
 - **1. Bölüm – Birim kesirler:** 20 soru, paydalar 2–4'ten başlayıp 10'a kadar zorlaşır.
 - **2. Bölüm – Basit kesirler:** 15 soru (2/3, 3/5 gibi).
