@@ -1,6 +1,6 @@
 {
   "name": "kesir-macerasi",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Venüs ile uzayda birim kesir ve basit kesir oyunu (3. sınıf)",
   "scripts": {

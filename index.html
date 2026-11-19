@@ -153,7 +153,7 @@ h2{margin:0;font-size:clamp(26px,6.5vh,44px);color:var(--berry);line-height:1}
 (()=>{
 'use strict';
 // ---------- app version, update check, offline layer ----------
-const APP_VERSION='1.0.0';
+const APP_VERSION='1.0.1';
 const PAGES_HOST='ekerem.github.io';
 const PAGES_URL='https://ekerem.github.io/kesir-macerasi/';
 const IS_NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
@@ -225,6 +225,7 @@ const SFX={c:null,on:store.get('kesir_sound',true),
   crack(){this.noise(0,.25,.25,1800);this.tone(180,0,.2,'square',.04,90)},
   fall(){this.tone(500,0,.9,'triangle',.07,90)},
   life(){[659,784,988,1319].forEach((f,i)=>this.tone(f,i*.08,.2,'square',.05))},
+  tick(n){this.tone(n===1?1046:784,0,.09,'square',.05)},
   beep(){this.tone(880,0,.12,'triangle',.08)},
   win(){[[523,0],[659,.15],[784,.3],[1047,.45],[784,.65],[1047,.8],[1319,1]].forEach(([f,t])=>this.tone(f,t,.3,'square',.06));},
   fail(){[[392,0],[349,.2],[311,.4],[262,.6]].forEach(([f,t])=>this.tone(f,t,.3,'triangle',.08))}
@@ -233,6 +234,7 @@ const SFX={c:null,on:store.get('kesir_sound',true),
 // ---------- 3D-ish projection (camera behind Venüs, looking forward) ----------
 // world: X sideways (px at depth 1), z depth, h height (px at depth 1). Screen y = HY + (CAMH - h)/z.
 const HY=150,CAMH=320,LX=270,HW=110,TH=130,DP=.4,STOP=1.75,STEPH=90,CAT_K=.85,MAXLIVES=3;
+const ANSWER_TIME=5;
 const STAGES={1:{target:20,name:'Birim Kesirler'},2:{target:15,name:'Basit Kesirler'}};
 const LANE_COL=[['#ff9ec4','#ffc9dd','#d9688f'],['#ffd166','#ffe4a3','#d19a2a'],['#9be8ff','#cdf4ff','#4fb3d4']];
 const cam={x:0,z:0,h:0};
@@ -314,10 +316,16 @@ function land(){
     g.state='crack';g.timer=.4;
   }
 }
+function shatter(s){s.st='gone';
+  for(let i=0;i<3;i++)g.shards.push({s,i,dy:0,vy:-60-Math.random()*60,rot:0,vr:(i-1)*1.6+(Math.random()-.5),dx:0,vx:(i-1)*40,alpha:1,t:0})}
+function timeUp(){
+  g.first=false;const p=g.plat;p.st='crack';p.t=0;SFX.crack();
+  pop('Süre doldu!',CX(),262,'#ff8fa3');
+  g.state='tcrack';g.timer=.45;
+}
 function breakStep(s){
-  s.st='gone';
-  for(let i=0;i<3;i++)g.shards.push({s,i,dy:0,vy:-60-Math.random()*60,rot:0,vr:(i-1)*1.6+(Math.random()-.5),dx:0,vx:(i-1)*40,alpha:1,t:0});
-  g.steps=g.steps.filter(x=>x!==s);
+  shatter(s);
+  if(s===g.plat)g.plat=null;else g.steps=g.steps.filter(x=>x!==s);
   const c=g.cat;c.anim='fall';c.vh=120;c.t=0;SFX.fall();
   g.state='fall';g.timer=1.25;
 }
@@ -350,11 +358,12 @@ function afterAdvance(){
 function loseLife(){
   g.lives--;g.lostT=1;
   if(g.lives<=0){g.state='over';SFX.fail();show('over',true);return}
+  if(!g.plat){g.plat=mkPlat();g.plat.h=-260;g.plat.alpha=0;g.plat.rise=1}
   const c=g.cat;Object.assign(c,{X:g.plat.X,z:1,h:g.plat.h,anim:'idle',alpha:0,rot:0,vh:0,sq:0});
   // stand where the platform is (after rebase plat is at origin)
-  c.X=g.plat.X;c.z=g.plat.big?1:g.plat.z+.22;c.h=g.plat.h;
+  c.X=g.plat.X;c.z=g.plat.big?1:g.plat.z+.22;c.h=g.plat.rise?0:g.plat.h;
   const p=P(c.X,c.z,c.h);burst(p.x,p.y-50,'#9ff3ea',18);SFX.life();
-  g.state='respawn';g.timer=.6;
+  g.state='respawn';g.timer=g.plat.rise?.9:.6;
 }
 function show(id,v){document.getElementById(id).hidden=!v}
 
@@ -379,12 +388,17 @@ function update(dt){
     if(s.st==='come'){const k=Math.max(0,Math.min(1,s.t/1.25));s.z=s.z0+(STOP-s.z0)*ease(k);s.alpha=Math.min(1,k*3);if(k>=1){s.st='idle';s.z=STOP}}
     if(s.glow)s.glow=Math.max(0,s.glow-dt*1.2);
   }
+  if(g.plat){const pl=g.plat;pl.t+=dt;if(pl.rise){pl.h+=(0-pl.h)*Math.min(1,dt*7);pl.alpha=Math.min(1,pl.alpha+dt*3);if(Math.abs(pl.h)<.5){pl.h=0;pl.rise=0;pl.alpha=1}}}
   for(const o of g.old){o.t+=dt;o.h-=dt*(200+o.t*500);o.alpha=Math.max(0,1-o.t*1.6)}
   g.old=g.old.filter(o=>o.alpha>0);
   for(const sh of g.shards){sh.t+=dt;sh.vy+=1500*dt;sh.dy+=sh.vy*dt;sh.dx+=sh.vx*dt;sh.rot+=sh.vr*dt;sh.alpha=Math.max(0,1-Math.max(0,sh.t-.5)*1.4)}
   g.shards=g.shards.filter(s=>s.alpha>0);
   switch(g.state){
-    case 'come':if(g.steps.every(s=>s.st==='idle'))g.state='choose';break;
+    case 'come':if(g.steps.every(s=>s.st==='idle')){g.state='choose';g.tl=ANSWER_TIME}break;
+    case 'choose':{const before=Math.ceil(g.tl);g.tl-=dt;const after=Math.ceil(g.tl);
+      if(after<before&&after<=3&&after>0)SFX.tick(after);
+      if(g.tl<=0)timeUp();break}
+    case 'tcrack':g.timer-=dt;if(g.timer<=0)breakStep(g.plat);break;
     case 'jump':{
       const k=Math.min(1,c.t/.55),e=easeIO(k);
       c.X=c.from.X+(c.to.X-c.from.X)*e;c.z=c.from.z+(c.to.z-c.from.z)*e;c.h=c.from.h+(c.to.h-c.from.h)*e+Math.sin(Math.PI*k)*150;
@@ -397,7 +411,7 @@ function update(dt){
     case 'crack':g.timer-=dt;if(c.target)c.target.t+=0;if(g.timer<=0)breakStep(c.target);break;
     case 'fall':c.vh-=1500*dt;c.h+=c.vh*dt;c.rot+=dt*2.5;c.alpha=Math.max(0,1-Math.max(0,c.t-.7)*2);
       g.timer-=dt;if(g.timer<=0)loseLife();break;
-    case 'respawn':c.alpha=Math.min(1,c.alpha+dt*2.5);g.timer-=dt;if(g.timer<=0){c.alpha=1;g.state='choose'}break;
+    case 'respawn':c.alpha=Math.min(1,c.alpha+dt*2.5);g.timer-=dt;if(g.timer<=0){c.alpha=1;g.state='choose';g.tl=ANSWER_TIME}break;
   }
   updParts(dt);
 }
@@ -654,7 +668,24 @@ function drawPanel(){
   ctx.fillText('Boyalı kısım',tx,y+40);ctx.fillText('bütünün',tx,y+68);ctx.fillStyle='#ff5d8f';ctx.fillText('kaçta kaçı?',tx,y+96);
   ctx.restore();
 }
+function drawTimer(){
+  if(g.state!=='choose'&&g.state!=='tcrack')return;
+  const tl=Math.max(0,g.state==='choose'?g.tl:0),k=tl/ANSWER_TIME,w=300,h=14,x=CX()-w/2+14,y=160;
+  const col=tl>3?'#7ee081':tl>1.5?'#ffd23d':'#ff5d6d',warn=tl<=1.5&&tl>0?Math.sin(g.t*20)*1.5:0;
+  ctx.save();ctx.translate(warn,0);
+  ctx.fillStyle='rgba(255,255,255,.16)';rr(x,y,w,h,7);ctx.fill();
+  if(k>0){ctx.fillStyle=col;rr(x,y,Math.max(h,w*k),h,7);ctx.fill()}
+  ctx.lineWidth=2;ctx.strokeStyle='#fff';rr(x,y,w,h,7);ctx.stroke();
+  // little stopwatch
+  const cx=x-22,cy=y+h/2;ctx.fillStyle='#fffdf6';ctx.strokeStyle='#2b2140';ctx.lineWidth=2.5;
+  ctx.fillRect(cx-3,cy-16,6,5);ctx.beginPath();ctx.arc(cx,cy,12,0,7);ctx.fill();ctx.stroke();
+  ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,9,-Math.PI/2,-Math.PI/2+Math.PI*2*k);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='800 18px '+FONT;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText(String(Math.ceil(tl)),x+w+10,cy+1);
+  ctx.restore();
+}
 function drawHUD(){
+  drawTimer();
   for(let i=0;i<MAXLIVES;i++){const lost=i>=g.lives;const s=lost?1.15:1.15*(1+(i===g.lives-1?0:0));heart(30+i*34,34,s,!lost)}
   if(g.lostT>0){ctx.globalAlpha=g.lostT;heart(30+g.lives*34,34-20*(1-g.lostT),1.15+.6*(1-g.lostT),true);ctx.globalAlpha=1}
   const T=STAGES[g.stage].target,bx=14,by=62,bw=150,bh=16;
@@ -723,7 +754,7 @@ addEventListener('keydown',e=>{
   }
   if(k==='Escape'||k==='KeyP'){if(playing())pause();else if(g.state==='pause')resume()}
 });
-const playing=()=>['come','choose','jump','good','adv','crack','fall','respawn'].includes(g.state);
+const playing=()=>['come','choose','jump','good','adv','crack','tcrack','fall','respawn'].includes(g.state);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing())pause()});
 let resumeTo='choose';
 function pause(){resumeTo=g.state;g.state='pause';show('pause',true);show('bExit',true)}
