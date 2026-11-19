@@ -280,7 +280,7 @@ function makeQ(stage,i){
 }
 
 // ---------- game flow ----------
-function mkPlat(){return{X:0,z:.78,h:0,dp:.6,col:['#8b86a8','#b9b4d4','#5d5880'],frac:null,st:'idle',t:0,alpha:1}}
+function mkPlat(){return{X:0,z:.72,h:0,dp:.75,big:true,seed:Math.random()*900,col:['#8b86a8','#b9b4d4','#5d5880'],frac:null,st:'idle',t:0,alpha:1}}
 function startStage(st){
   g.stage=st;g.count=0;g.lives=MAXLIVES;g.stars=0;g.qi=0;g.last=0;
   cam.x=cam.z=cam.h=0;g.plat=mkPlat();g.old=[];g.shards=[];g.parts=[];g.pops=[];g.steps=[];
@@ -291,7 +291,7 @@ function startStage(st){
 }
 function nextQuestion(){
   g.q=makeQ(g.stage,g.qi++);g.first=true;g.qPop=0;
-  g.steps=g.q.opts.map((o,k)=>({lane:k-1,X:(k-1)*LX,z:9+k*.35,h:STEPH,dp:DP,col:LANE_COL[k],frac:o,ok:o.ok,st:'come',t:-k*.09,alpha:0,z0:9+k*.35}));
+  g.steps=g.q.opts.map((o,k)=>({lane:k-1,X:(k-1)*LX,z:9+k*.35,h:STEPH,dp:DP,col:LANE_COL[k],frac:o,ok:o.ok,seed:Math.random()*900,hue:[330,40,200][k],crys:[[LANE_COL[k][1],LANE_COL[k][0],LANE_COL[k][2]]][0],st:'come',t:-k*.09,alpha:0,z0:9+k*.35}));
   g.state='come';g.timer=0;SFX.come();
 }
 function choose(lane){
@@ -352,7 +352,7 @@ function loseLife(){
   if(g.lives<=0){g.state='over';SFX.fail();show('over',true);return}
   const c=g.cat;Object.assign(c,{X:g.plat.X,z:1,h:g.plat.h,anim:'idle',alpha:0,rot:0,vh:0,sq:0});
   // stand where the platform is (after rebase plat is at origin)
-  c.X=g.plat.X;c.z=g.plat.z+.22;c.h=g.plat.h;
+  c.X=g.plat.X;c.z=g.plat.big?1:g.plat.z+.22;c.h=g.plat.h;
   const p=P(c.X,c.z,c.h);burst(p.x,p.y-50,'#9ff3ea',18);SFX.life();
   g.state='respawn';g.timer=.6;
 }
@@ -450,53 +450,119 @@ function drawSky(){
 }
 
 // ---------- fraction blocks ----------
-function drawBlock(o,glowAll){
-  const X=o.X,h=o.h,dp=o.dp;let z0=Math.max(o.z,cam.z+.3);const z1=o.z+dp;if(z1<=z0+.02)return;
-  if(o.alpha<=0)return;
-  ctx.save();ctx.globalAlpha=o.alpha;
-  const n1=P(X-HW,z0,h),n2=P(X+HW,z0,h),f1=P(X-HW,z1,h),f2=P(X+HW,z1,h),b1=P(X-HW,z0,h-TH),b2=P(X+HW,z0,h-TH),fb1=P(X-HW,z1,h-TH),fb2=P(X+HW,z1,h-TH);
-  const [face,top,side]=o.col,s=n1.s,lw=Math.max(1.2,3*s);
-  // engine glow underneath (floating in space)
-  const gp=P(X,(z0+z1)/2,h-TH-10);const gr=ctx.createRadialGradient(gp.x,gp.y,1,gp.x,gp.y,HW*1.1*gp.s);
-  gr.addColorStop(0,'rgba(120,240,255,.45)');gr.addColorStop(1,'rgba(120,240,255,0)');ctx.fillStyle=gr;
-  ctx.beginPath();ctx.ellipse(gp.x,gp.y,HW*1.1*gp.s,HW*.35*gp.s,0,0,7);ctx.fill();
-  ctx.lineJoin='round';ctx.strokeStyle='#2b2140';ctx.lineWidth=lw;
-  // visible side face
-  if(X-HW>cam.x){poly([n1,f1,fb1,b1]);ctx.fillStyle=side;ctx.fill();ctx.stroke()}
-  if(X+HW<cam.x){poly([n2,f2,fb2,b2]);ctx.fillStyle=side;ctx.fill();ctx.stroke()}
-  // top
-  poly([n1,n2,f2,f1]);ctx.fillStyle=top;ctx.fill();ctx.stroke();
-  // front
-  poly([n1,n2,b2,b1]);ctx.fillStyle=face;ctx.fill();ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.35)';poly([n1,n2,P(X+HW,z0,h-12),P(X-HW,z0,h-12)]);ctx.fill();
-  if(o.glow){ctx.globalAlpha=o.alpha*o.glow;ctx.fillStyle='#fff6a8';poly([n1,n2,b2,b1]);ctx.fill();poly([n1,n2,f2,f1]);ctx.fill();ctx.globalAlpha=o.alpha}
-  if(o.frac)drawFrac(o.frac,(n1.x+n2.x)/2,(n1.y+b1.y)/2,s);
-  if(o.st==='crack'){const k=Math.min(1,o.t/.3),mx=(n1.x+n2.x)/2,w=n2.x-n1.x,hh=b1.y-n1.y;
-    ctx.strokeStyle='#1b1c26';ctx.lineWidth=Math.max(1.5,3.5*s);ctx.beginPath();
-    const pts=[[0,0],[-.08,.2],[.06,.42],[-.1,.66],[.04,1]];
-    ctx.moveTo(mx+pts[0][0]*w,n1.y);for(let i=1;i<pts.length;i++){if(pts[i][1]>k)break;ctx.lineTo(mx+pts[i][0]*w,n1.y+pts[i][1]*hh)}
-    ctx.moveTo(mx-.08*w,n1.y+.2*hh);ctx.lineTo(mx-.3*w,n1.y+.35*hh*k);
-    ctx.moveTo(mx+.06*w,n1.y+.42*hh);ctx.lineTo(mx+.32*w,n1.y+.6*hh*k);ctx.stroke()}
+function rnd(i){const s=Math.sin(i*127.1+311.7)*43758.5453;return s-Math.floor(s)}
+// floating space rock: jagged top surface, chiselled underside tapering to a point
+const RN=14;
+function rockGeom(o){
+  const rx=o.big?150:HW*1.08,TH2=o.big?190:TH*1.15,rz=o.dp/2,zc=o.z+rz,sd=o.seed,minZ=cam.z+.3;
+  const ring=(k,rad,jit,dh)=>{const out=[];for(let i=0;i<RN;i++){const a=i/RN*Math.PI*2+rnd(sd+i*.37)*.15,r=rad*(1+(rnd(sd+i+k*31)-.5)*jit);
+    out.push({a,p:P(o.X+Math.cos(a)*rx*r,Math.max(minZ,zc+Math.sin(a)*rz*r),o.h+dh*TH2+(k?(rnd(sd+i*7+k)-.5)*14:(rnd(sd+i*3)-.5)*5))})}return out};
+  const top=ring(0,1,.16,0),r2=ring(1,.9,.28,-.38),r3=ring(2,.55,.35,-.78);
+  const tip=P(o.X+(rnd(sd+5)-.5)*30,zc,o.h-TH2*1.25);
+  return{top,r2,r3,tip,rx,rz,zc,TH2};
+}
+function hull(pts){pts=pts.slice().sort((a,b)=>a.x-b.x||a.y-b.y);const cr=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lo=[],up=[];for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  up.pop();lo.pop();return lo.concat(up)}
+const ROCK={hue:262,sat:14};
+function rockCol(l,hue,sat){return`hsl(${hue},${sat}%,${Math.max(6,Math.min(92,l))}%)`}
+function drawBlock(o){
+  if(o.alpha<=0)return;if(o.z+o.dp<=cam.z+.32)return;
+  const G=rockGeom(o),s=G.top[0].p.s,lw=Math.max(1.1,2.6*s),hue=o.big?255:(o.hue||250),sat=o.big?16:18;
+  ctx.save();ctx.globalAlpha=o.alpha;ctx.lineJoin='round';ctx.lineCap='round';
+  // engine-like glow under the floating rock
+  const gp=G.tip,gr=ctx.createRadialGradient(gp.x,gp.y,1,gp.x,gp.y,G.rx*1.1*gp.s);
+  gr.addColorStop(0,'rgba(120,240,255,.38)');gr.addColorStop(1,'rgba(120,240,255,0)');ctx.fillStyle=gr;
+  ctx.beginPath();ctx.ellipse(gp.x,gp.y,G.rx*1.1*gp.s,G.rx*.5*gp.s,0,0,7);ctx.fill();
+  // silhouette
+  const all=[...G.top.map(q=>q.p),...G.r2.map(q=>q.p),...G.r3.map(q=>q.p),G.tip];
+  const hl=hull(all);poly(hl);ctx.fillStyle=rockCol(22,hue,sat);ctx.fill();
+  // chiselled facets on the side facing us (far ones first)
+  const fac=[];
+  const rings=[G.top,G.r2,G.r3];
+  for(let k=0;k<3;k++)for(let i=0;i<RN;i++){const j=(i+1)%RN,A=rings[k],am=(A[i].a+A[j].a+(j===0?Math.PI*2:0))/2;
+    if(Math.sin(am)>.25)continue;
+    const pts=k<2?[A[i].p,A[j].p,rings[k+1][j].p,rings[k+1][i].p]:[A[i].p,A[j].p,G.tip];
+    const light=46-k*9-Math.cos(am)*12+(rnd(o.seed+i*5+k*17)-.5)*8;
+    fac.push({d:Math.sin(am),pts,light})}
+  fac.sort((a,b)=>b.d-a.d);
+  for(const f of fac){poly(f.pts);ctx.fillStyle=rockCol(f.light,hue,sat);ctx.fill();ctx.strokeStyle=rockCol(f.light-14,hue,sat);ctx.lineWidth=lw*.6;ctx.stroke()}
+  // top surface
+  poly(G.top.map(q=>q.p));
+  const tc=P(o.X,G.zc,o.h),tg=ctx.createRadialGradient(tc.x-G.rx*.3*tc.s,tc.y-8*tc.s,4,tc.x,tc.y,G.rx*1.1*tc.s);
+  tg.addColorStop(0,rockCol(78,hue,sat));tg.addColorStop(.7,rockCol(62,hue,sat));tg.addColorStop(1,rockCol(50,hue,sat));
+  ctx.fillStyle=tg;ctx.fill();ctx.strokeStyle=rockCol(30,hue,sat);ctx.lineWidth=lw*.7;ctx.stroke();
+  // rim highlight on the near edge
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=lw*.9;ctx.beginPath();let st=false;
+  for(let i=0;i<=RN;i++){const q=G.top[i%RN];if(Math.sin(q.a)<-.2){if(!st){ctx.moveTo(q.p.x,q.p.y+2*s);st=true}else ctx.lineTo(q.p.x,q.p.y+2*s)}else st=false}ctx.stroke();
+  // craters
+  const nc=o.big?5:3;
+  for(let i=0;i<nc;i++){const cx2=o.X+(rnd(o.seed+40+i)-.5)*G.rx*1.2,cz=G.zc+(rnd(o.seed+50+i)-.5)*G.rz*1.1,cr=(o.big?16:11)+rnd(o.seed+60+i)*12;
+    const c=P(cx2,cz,o.h),rw=cr*c.s,rh=cr*c.s*.42;
+    ctx.fillStyle=rockCol(44,hue,sat);ctx.beginPath();ctx.ellipse(c.x,c.y,rw,rh,0,0,7);ctx.fill();
+    ctx.fillStyle=rockCol(36,hue,sat);ctx.beginPath();ctx.ellipse(c.x+rw*.12,c.y+rh*.1,rw*.78,rh*.7,0,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=Math.max(1,1.5*s);ctx.beginPath();ctx.ellipse(c.x,c.y,rw,rh,0,.1,Math.PI-.1);ctx.stroke()}
+  // glowing crystals on the back edge
+  const cc=o.crys||['#9ff3ea','#33cfc4','#17968e'],ncr=o.big?4:2;
+  for(let i=0;i<ncr;i++){const idx=Math.floor(RN*(.12+.3*i/(ncr)+rnd(o.seed+70+i)*.1))%RN,q=G.top[(idx+Math.floor(RN*.0))%RN];
+    const back=G.top.filter(v=>o.big?Math.abs(Math.cos(v.a))>.75:Math.sin(v.a)>.3);const bq=back[Math.floor(rnd(o.seed+80+i)*back.length)]||q;
+    const b=P(o.X+Math.cos(bq.a)*G.rx*.8,G.zc+Math.sin(bq.a)*G.rz*.8,o.h),hh=(26+rnd(o.seed+90+i)*24)*b.s,ww=(8+rnd(o.seed+95+i)*5)*b.s,tilt=(rnd(o.seed+99+i)-.5)*.7;
+    ctx.save();ctx.translate(b.x,b.y);ctx.rotate(tilt);
+    ctx.shadowColor=cc[0];ctx.shadowBlur=10*b.s;
+    ctx.beginPath();ctx.moveTo(-ww,0);ctx.lineTo(-ww*.8,-hh*.7);ctx.lineTo(0,-hh);ctx.lineTo(ww*.8,-hh*.7);ctx.lineTo(ww,0);ctx.closePath();
+    const cg=ctx.createLinearGradient(-ww,0,ww,0);cg.addColorStop(0,cc[0]);cg.addColorStop(.5,cc[1]);cg.addColorStop(1,cc[2]);ctx.fillStyle=cg;ctx.fill();
+    ctx.shadowBlur=0;ctx.strokeStyle='#1b1c26';ctx.lineWidth=Math.max(1,1.6*b.s);ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.moveTo(-ww*.35,-hh*.1);ctx.lineTo(-ww*.3,-hh*.65);ctx.stroke();ctx.restore()}
+  // outline
+  poly(hl);ctx.strokeStyle='#1b1c26';ctx.lineWidth=lw;ctx.stroke();
+  // small pebbles floating next to it
+  for(let i=0;i<2;i++){const side=i?1:-1,bob=Math.sin(g.t*1.7+o.seed+i*2)*8;
+    const pb=P(o.X+side*(G.rx+38+rnd(o.seed+110+i)*25),G.zc,o.h-G.TH2*.5+bob),pr=(9+rnd(o.seed+120+i)*7)*pb.s;
+    ctx.save();ctx.translate(pb.x,pb.y);ctx.rotate(g.t*.4*side+i);
+    ctx.beginPath();for(let k=0;k<7;k++){const a=k/7*Math.PI*2,r=pr*(.75+rnd(o.seed+k+i*9)*.4);ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r*.85)}ctx.closePath();
+    ctx.fillStyle=rockCol(48,hue,sat);ctx.fill();ctx.strokeStyle='#1b1c26';ctx.lineWidth=Math.max(1,1.6*pb.s);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.arc(-pr*.25,-pr*.25,pr*.3,0,7);ctx.fill();ctx.restore()}
+  if(o.frac)drawPlaque(o,G);
+  if(o.glow){ctx.globalAlpha=o.alpha*o.glow*.7;poly(G.top.map(q=>q.p));ctx.fillStyle='#fff6a8';ctx.fill();ctx.globalAlpha=o.alpha}
+  if(o.st==='crack'){const k=Math.min(1,o.t/.3),c=P(o.X,G.zc-G.rz,o.h),w=G.rx*2*c.s,hh=G.TH2*1.1*c.s;
+    ctx.strokeStyle='#0e0e16';ctx.lineWidth=Math.max(1.5,4*c.s);ctx.beginPath();
+    const pts=[[0,-.05],[-.06,.18],[.05,.4],[-.08,.62],[.03,.95]];
+    ctx.moveTo(c.x+pts[0][0]*w,c.y+pts[0][1]*hh);for(let i=1;i<pts.length;i++){if(pts[i][1]>k)break;ctx.lineTo(c.x+pts[i][0]*w,c.y+pts[i][1]*hh)}
+    ctx.moveTo(c.x-.06*w,c.y+.18*hh);ctx.lineTo(c.x-.3*w,c.y+.3*hh*k);ctx.moveTo(c.x+.05*w,c.y+.4*hh);ctx.lineTo(c.x+.32*w,c.y+.55*hh*k);ctx.stroke()}
   ctx.restore();
 }
-function drawFrac(f,x,y,s){
-  const fs=Math.max(6,44*s);
+// glowing crystal tablet on the front of the rock, carrying the fraction
+function drawPlaque(o,G){
+  const c=P(o.X,G.zc-G.rz*1.02,o.h-TH*.36),s=c.s,fs=Math.max(6,46*s),w=fs*2.3,h=fs*2.95,x=c.x-w/2,y=c.y-h/2,[face,light,dark]=o.col;
+  const pulse=.6+.4*Math.sin(g.t*3+o.lane*2);
+  ctx.save();
+  ctx.shadowColor=face;ctx.shadowBlur=(14+8*pulse)*s;
+  rr(x,y,w,h,fs*.42);const pg=ctx.createLinearGradient(0,y,0,y+h);pg.addColorStop(0,'#ffffff');pg.addColorStop(.55,light);pg.addColorStop(1,face);
+  ctx.fillStyle=pg;ctx.fill();ctx.shadowBlur=0;
+  ctx.lineWidth=Math.max(1.5,4.5*s);ctx.strokeStyle='#1b1c26';ctx.stroke();
+  rr(x+5*s,y+5*s,w-10*s,h-10*s,fs*.32);ctx.lineWidth=Math.max(1,2.5*s);ctx.strokeStyle=dark;ctx.stroke();
+  // shine
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.ellipse(x+w*.3,y+h*.16,w*.2,h*.05,-.3,0,7);ctx.fill();
+  // rivets
+  ctx.fillStyle=dark;for(const [dx,dy] of [[.16,.08],[.84,.08],[.16,.92],[.84,.92]]){ctx.beginPath();ctx.arc(x+w*dx,y+h*dy,Math.max(.8,2.6*s),0,7);ctx.fill()}
+  // fraction
   ctx.fillStyle='#2b2140';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 '+fs+'px '+FONT;
-  ctx.fillText(String(f.n),x,y-fs*.55);ctx.fillText(String(f.d),x,y+fs*.6);
-  ctx.lineWidth=Math.max(1.5,4*s);ctx.lineCap='round';ctx.strokeStyle='#2b2140';ctx.beginPath();ctx.moveTo(x-fs*.42,y+fs*.02);ctx.lineTo(x+fs*.42,y+fs*.02);ctx.stroke();
+  ctx.fillText(String(o.frac.n),c.x,c.y-fs*.55);ctx.fillText(String(o.frac.d),c.x,c.y+fs*.62);
+  ctx.lineWidth=Math.max(1.5,4.5*s);ctx.strokeStyle='#2b2140';ctx.beginPath();ctx.moveTo(c.x-fs*.45,c.y+fs*.03);ctx.lineTo(c.x+fs*.45,c.y+fs*.03);ctx.stroke();
+  ctx.restore();
 }
 function drawShard(sh){
-  const o=sh.s,z0=Math.max(o.z,cam.z+.3),n1=P(o.X-HW,z0,o.h),n2=P(o.X+HW,z0,o.h),b1=P(o.X-HW,z0,o.h-TH);
-  const w=(n2.x-n1.x)/3,ext=50*n1.s,x0=n1.x+sh.i*w-(sh.i===0?ext:0),x1=n1.x+(sh.i+1)*w+(sh.i===2?ext:0);
-  const top=P(o.X,o.z+o.dp,o.h).y-6,bot=b1.y+40*n1.s;
-  const cxs=(x0+x1)/2,cys=(n1.y+b1.y)/2;
+  const o=sh.s,G=rockGeom(o),all=[...G.top.map(q=>q.p),...G.r2.map(q=>q.p),G.tip];
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(const p of all){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y)}
+  const ext=60*G.top[0].p.s;x0-=ext;x1+=ext;y0-=70*G.top[0].p.s;y1+=10;
+  const w=(x1-x0)/3,sx0=x0+sh.i*w,cxs=sx0+w/2,cys=(y0+y1)/2;
   ctx.save();ctx.globalAlpha=sh.alpha;
   ctx.translate(cxs+sh.dx,cys+sh.dy);ctx.rotate(sh.rot);ctx.translate(-cxs,-cys);
-  ctx.beginPath();ctx.rect(x0,top,x1-x0,bot-top);ctx.clip();
-  const keep=o.alpha;o.alpha=1;const st=o.st;o.st='idle';drawBlock(o);o.st=st;o.alpha=keep;
+  ctx.beginPath();ctx.rect(sx0,y0,w+.5,y1-y0);ctx.clip();
+  const keep=o.alpha,st=o.st;o.alpha=1;o.st='idle';drawBlock(o);o.st=st;o.alpha=keep;
   ctx.restore();
 }
-
 // ---------- Venüs from behind ----------
 function drawCatBack(x,y,sc,c){
   const air=c.anim==='jump'||c.anim==='fall',t=g.t;
